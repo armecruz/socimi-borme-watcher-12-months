@@ -1,0 +1,45 @@
+name: SOCIMI BORME Watcher
+
+on:
+  schedule:
+    - cron: "35 6 * * 1-5"   # L-V a las 06:35 UTC ≈ 08:35 Madrid
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show repo tree (debug)
+        run: |
+          pwd
+          ls -la
+          echo "-----"
+          find . -maxdepth 2 -type f -name "*socimi*_pipeline*.py" -print || true
+
+      - name: Ensure script exists
+        run: |
+          test -f socimi_borme_pipeline.py || { echo "ERROR: No existe socimi_borme_pipeline.py en la raíz del repo."; exit 1; }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps and run
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+          python socimi_borme_pipeline.py run
+          python socimi_borme_pipeline.py export
+
+      - name: Commit DB & CSV
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "[email protected]"
+          git add socimi_borme.db socimi_borme.csv
+          git commit -m "Update SOCIMI DB $(date -u +'%Y-%m-%d')" || echo "No changes"
+          git push
