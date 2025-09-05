@@ -2,8 +2,7 @@ name: SOCIMI BORME Watcher
 
 on:
   schedule:
-    # L-V a las 06:35 UTC ≈ 08:35 Europe/Madrid
-    - cron: "35 6 * * 1-5"
+    - cron: "35 6 * * 1-5"   # L-V a las 06:35 UTC ≈ 08:35 Madrid
   workflow_dispatch:
 
 jobs:
@@ -13,16 +12,40 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Debug repo tree
+        run: |
+          echo "PWD: $(pwd)"
+          echo "== Nivel 1 =="
+          ls -la
+          echo "== Nivel 2 =="
+          find . -maxdepth 2 -type f -print
+
+      - name: Verify files exist
+        run: |
+          test -f socimi_borme_pipeline.py || { echo "ERROR: falta socimi_borme_pipeline.py en la RAÍZ del repo."; exit 2; }
+          test -f requirements.txt || { echo "ERROR: falta requirements.txt en la RAÍZ del repo."; exit 2; }
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install deps and run
+
+      - name: Install deps
         run: |
           python -m venv .venv
           source .venv/bin/activate
+          python -V
+          pip install --upgrade pip
+          cat requirements.txt
           pip install -r requirements.txt
-          python socimi_borme_pipeline.py run
-          python socimi_borme_pipeline.py export
+
+      - name: Run pipeline (12 months)
+        run: |
+          source .venv/bin/activate
+          set -e
+          python -u socimi_borme_pipeline.py run
+          python -u socimi_borme_pipeline.py export
+
       - name: Commit DB & CSV
         run: |
           git config user.name "github-actions[bot]"
